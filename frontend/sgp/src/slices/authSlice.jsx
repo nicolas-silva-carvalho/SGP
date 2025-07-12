@@ -8,6 +8,9 @@ const initialState = {
   error: false,
   success: false,
   loading: false,
+  users: [],
+  sersLoading: false,
+  usersError: null,
 };
 
 export const register = createAsyncThunk(
@@ -36,6 +39,15 @@ export const login = createAsyncThunk("auth/login", async (user, thunkAPI) => {
 
   return data;
 });
+
+export const getAllUsers = createAsyncThunk(
+  "auth/getAllUsers",
+  async (_, thunkAPI) => {
+    const data = await authService.getAllUsers();
+    if (data.errors) return thunkAPI.rejectWithValue(data.errors[0]);
+    return data;
+  }
+);
 
 export const authSlice = createSlice({
   name: "auth",
@@ -84,6 +96,18 @@ export const authSlice = createSlice({
         state.success = true;
         state.error = null;
         state.user = null;
+      })
+      .addCase(getAllUsers.pending, (state) => {
+        state.usersLoading = true;
+        state.usersError = null;
+      })
+      .addCase(getAllUsers.fulfilled, (state, action) => {
+        state.usersLoading = false;
+        state.users = action.payload;
+      })
+      .addCase(getAllUsers.rejected, (state, action) => {
+        state.usersLoading = false;
+        state.usersError = action.payload;
       });
   },
 });

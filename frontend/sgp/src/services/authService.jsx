@@ -46,10 +46,33 @@ async function login(data) {
   }
 }
 
+async function getAllUsers() {
+  const user = JSON.parse(localStorage.getItem("user"));
+  const token = user?.token;
+
+  const config = requestConfig("GET", null, token);
+
+  try {
+    const response = await fetch(`${api}/users/`, config);
+    const res = await response.json();
+
+    if (!response.ok) {
+      console.error("Erro ao buscar usuários:", res);
+      return res;
+    }
+
+    return res;
+  } catch (error) {
+    console.error("Erro na requisição:", error);
+    return { errors: ["Erro de rede ou servidor fora do ar."] };
+  }
+}
+
 export const authService = {
   register,
   logout,
   login,
+  getAllUsers,
 };
 
 export default authService;

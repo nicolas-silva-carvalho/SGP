@@ -30,7 +30,12 @@ const register = async (req, res) => {
       });
     }
 
-    res.status(201).json({ _id: newUser.id, token: generateToken(newUser.id) });
+    res.status(201).json({
+      _id: newUser.id,
+      name: name,
+      email: email,
+      token: generateToken(newUser.id),
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ errors: ["Erro interno do servidor."] });
@@ -74,12 +79,7 @@ const getCurrentUser = async (req, res) => {
 };
 
 const update = async (req, res) => {
-  const { name, password, bio } = req.body;
-  let profileImage = null;
-
-  if (req.file) {
-    profileImage = req.file.filename;
-  }
+  const { name, password } = req.body;
 
   const reqUser = req.user;
 
@@ -98,8 +98,6 @@ const update = async (req, res) => {
     const updatedUser = await User.update(reqUser.id, {
       name,
       password: passwordHash,
-      profileImage,
-      bio,
     });
 
     res.status(200).json(updatedUser);
@@ -130,10 +128,26 @@ const getUserById = async (req, res) => {
   }
 };
 
+const getAllUsers = async (req, res) => {
+  try {
+    const users = await User.getAllUsers();
+
+    if (!users) {
+      return res.status(404).json({ errors: ["Usuários não encontrado."] });
+    }
+
+    res.status(200).json(users);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ errors: ["Erro interno do servidor."] });
+  }
+};
+
 module.exports = {
   register,
   login,
   getCurrentUser,
   update,
   getUserById,
+  getAllUsers,
 };

@@ -29,6 +29,7 @@ const Drawer = styled(MuiDrawer)({
 
 export default function SideMenu() {
   const { user } = useAuth();
+  console.log(user);
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
@@ -76,6 +77,8 @@ export default function SideMenu() {
           alignItems: "center",
           borderTop: "1px solid",
           borderColor: "divider",
+          minHeight: 64, // garante altura mínima para manter layout
+          overflow: "hidden", // evita scroll
         }}
       >
         <Avatar
@@ -84,14 +87,33 @@ export default function SideMenu() {
           src="/static/images/avatar/7.jpg"
           sx={{ width: 36, height: 36 }}
         />
-        <Box sx={{ mr: "auto" }}>
+        <Box
+          sx={{
+            mr: "auto",
+            overflow: "hidden", // impede que conteúdo estoure
+          }}
+        >
           <Typography
             variant="body2"
-            sx={{ fontWeight: 500, lineHeight: "16px" }}
+            noWrap
+            sx={{
+              fontWeight: 500,
+              lineHeight: "16px",
+              fontSize: "12px",
+              maxWidth: 130, // limite horizontal para truncar corretamente
+            }}
           >
             {user.name}
           </Typography>
-          <Typography variant="caption" sx={{ color: "text.secondary" }}>
+          <Typography
+            variant="caption"
+            noWrap
+            sx={{
+              color: "text.secondary",
+              maxWidth: 130,
+              display: "block",
+            }}
+          >
             {user.email}
           </Typography>
         </Box>

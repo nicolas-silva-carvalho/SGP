@@ -37,9 +37,16 @@ const update = async (id, fields) => {
   return rows[0];
 };
 
+const getAllUsers = async () => {
+  const { rows } = await pool.query("SELECT id, name, email FROM users");
+
+  return rows;
+};
+
 module.exports = {
   findOneByEmail,
   findById,
   create,
   update,
+  getAllUsers,
 };

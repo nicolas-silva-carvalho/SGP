@@ -36,7 +36,7 @@ export default function NavbarBreadcrumbs() {
     >
       {/* 5. LINK FIXO PARA A PÁGINA INICIAL/DASHBOARD */}
       <RouterLink to="/" style={{ textDecoration: "none", color: "inherit" }}>
-        <Typography variant="body1">Home</Typography>
+        <Typography variant="body1">Ínicio</Typography>
       </RouterLink>
 
       {/* 6. RENDERIZE CADA SEGMENTO DA URL DINAMICAMENTE */}

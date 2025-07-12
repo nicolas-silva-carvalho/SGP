@@ -21,6 +21,10 @@ import {
   SitemarkIcon,
 } from "../../components/CustomIcon";
 
+import { useSelector, useDispatch } from "react-redux";
+import { register, reset } from "../../slices/authSlice";
+import { useEffect } from "react";
+
 const Card = styled(MuiCard)(({ theme }) => ({
   display: "flex",
   flexDirection: "column",
@@ -74,11 +78,15 @@ export default function SignUp(props) {
   const [confirmPasswordErrorMessage, setConfirmPasswordErrorMessage] =
     React.useState("");
 
+  const dispatch = useDispatch();
+
+  const { loading, error } = useSelector((state) => state.auth);
+
   const validateInputs = () => {
     const email = document.getElementById("email");
     const password = document.getElementById("password");
     const name = document.getElementById("name");
-    const confirmPassword = document.getElementById("confirm-password");
+    const confirmPassword = document.getElementById("confirmPassword");
 
     let isValid = true;
 
@@ -126,22 +134,29 @@ export default function SignUp(props) {
   };
 
   const handleSubmit = (event) => {
-    event.preventDefault(); // Prevenir o envio padrão do formulário
-    // --- INÍCIO DAS MUDANÇAS ---
-    // 3. Chamar a validação e verificar o resultado antes de continuar
+    event.preventDefault();
+
     const isValid = validateInputs();
     if (!isValid) {
       return;
     }
 
     const data = new FormData(event.currentTarget);
-    console.log({
+    const user = {
       name: data.get("name"),
-      lastName: data.get("lastName"),
       email: data.get("email"),
       password: data.get("password"),
-    });
+      confirmPassword: data.get("confirmPassword"),
+    };
+
+    console.log(user);
+
+    dispatch(register(user));
   };
+
+  useEffect(() => {
+    dispatch(reset());
+  }, [dispatch]);
 
   return (
     <AppTheme {...props}>
@@ -208,14 +223,14 @@ export default function SignUp(props) {
               />
             </FormControl>
             <FormControl>
-              <FormLabel htmlFor="confirm-password">Confirmar senha</FormLabel>
+              <FormLabel htmlFor="confirmPassword">Confirmar senha</FormLabel>
               <TextField
                 required
                 fullWidth
-                name="confirm-password" // Nome diferente para evitar conflitos
+                name="confirmPassword" // Nome diferente para evitar conflitos
                 placeholder="••••••"
                 type="password"
-                id="confirm-password" // ID único é fundamental
+                id="confirmPassword" // ID único é fundamental
                 autoComplete="new-password"
                 variant="outlined"
                 error={confirmPasswordError}
