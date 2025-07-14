@@ -4,15 +4,7 @@ import Layout from "../../components/Layout";
 
 export default function Home(props) {
   return (
-    <Layout {...props}>
-      <Typography
-        variant="h4"
-        component="h1"
-        sx={{ alignSelf: "flex-start", width: "100%", mt: 2 }}
-      >
-        Página Inicial
-      </Typography>
-
+    <Layout {...props} title="Página principal">
       <Typography
         paragraph
         sx={{ alignSelf: "flex-start", width: "100%", mt: 1 }}

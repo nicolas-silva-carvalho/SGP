@@ -4,6 +4,7 @@ import CssBaseline from "@mui/material/CssBaseline";
 import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
 import Card from "@mui/material/Card";
+import Typography from "@mui/material/Typography";
 import CardContent from "@mui/material/CardContent";
 
 import AppNavbar from "./AppNavbar";
@@ -17,7 +18,7 @@ const xThemeComponents = {
   ...treeViewCustomizations,
 };
 
-export default function Layout({ children, ...props }) {
+export default function Layout({ title, children, ...props }) {
   return (
     <AppTheme {...props} themeComponents={xThemeComponents}>
       <CssBaseline enableColorScheme />
@@ -44,6 +45,17 @@ export default function Layout({ children, ...props }) {
             }}
           >
             <Header />
+            <Typography
+              variant="h4"
+              component="h1"
+              sx={{
+                width: "100%", // Garante que ele ocupe a largura toda
+                alignSelf: "flex-start", // Alinha à esquerda
+                mb: 1, // Adiciona uma margem abaixo
+              }}
+            >
+              {title}
+            </Typography>
             <Card variant="outlined" sx={{ width: "100%" }}>
               <CardContent>{children}</CardContent>
             </Card>

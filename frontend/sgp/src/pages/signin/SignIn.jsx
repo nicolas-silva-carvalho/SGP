@@ -27,6 +27,8 @@ import { useSelector, useDispatch } from "react-redux";
 
 import { login, reset } from "../../slices/authSlice";
 
+import { toast } from "react-toastify";
+
 const Card = styled(MuiCard)(({ theme }) => ({
   display: "flex",
   flexDirection: "column",
@@ -138,6 +140,13 @@ export default function SignIn(props) {
   useEffect(() => {
     dispatch(reset());
   }, [dispatch]);
+
+  useEffect(() => {
+    if (error) {
+      toast.error(error);
+      dispatch(reset());
+    }
+  }, [error, dispatch]);
 
   return (
     <AppTheme {...props}>

@@ -13,6 +13,8 @@ import DeleteIcon from "@mui/icons-material/Delete";
 
 import Box from "@mui/material/Box";
 
+import { ptBR } from "@mui/x-data-grid/locales";
+
 export default function Users(props) {
   const dispatch = useDispatch();
   const { users, usersLoading, usersError } = useSelector(
@@ -71,11 +73,7 @@ export default function Users(props) {
   ];
 
   return (
-    <Layout {...props}>
-      <Typography variant="h4" component="h1" sx={{ mb: 2 }}>
-        Controle de usuários
-      </Typography>
-
+    <Layout {...props} title="Controle de usuários">
       {usersError && (
         <Typography color="error" sx={{ mb: 2 }}>
           Erro ao carregar usuários: {usersError}
@@ -84,6 +82,7 @@ export default function Users(props) {
 
       <Box sx={{ height: 500, width: "100%" }}>
         <DataGrid
+          localeText={ptBR.components.MuiDataGrid.defaultProps.localeText}
           rows={users}
           columns={columns}
           loading={usersLoading}
