@@ -44,12 +44,12 @@ const register = async (req, res) => {
 
 const login = async (req, res) => {
   const { email, password } = req.body;
-  console.log("BODY RECEBIDO NO BACKEND:", req.body, email, password);
+  // console.log("BODY RECEBIDO NO BACKEND:", req.body, email, password);
 
   try {
     const user = await User.findOneByEmail(email);
-    console.log("BODY RECEBIDO NO BACKEND:", req.body, email, password, user);
-    console.log(user);
+    // console.log("BODY RECEBIDO NO BACKEND:", req.body, email, password, user);
+    // console.log(user);
 
     if (!user) {
       return res.status(404).json({ errors: ["Usuário não encontrado."] });

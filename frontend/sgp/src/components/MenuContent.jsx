@@ -18,7 +18,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 const mainListItems = [
   { text: "Ínicio", icon: <HomeRoundedIcon />, path: "/" },
   { text: "Usuários", icon: <PeopleRoundedIcon />, path: "/usuarios" },
-  { text: "Analytics", icon: <AnalyticsRoundedIcon />, path: "/analytics" },
+  { text: "Plantões", icon: <AnalyticsRoundedIcon />, path: "/plantoes" },
   { text: "Tasks", icon: <AssignmentRoundedIcon />, path: "/tasks" },
   { text: "Settings", icon: <SettingsRoundedIcon />, path: "/settings" },
   { text: "About", icon: <InfoRoundedIcon />, path: "/about" },

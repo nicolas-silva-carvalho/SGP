@@ -15,7 +15,7 @@ import { useLocation } from "react-router-dom";
 
 const pageTitles = {
   "/": "Home",
-  "/analytics": "Analytics",
+  "/Plantões": "Plantões",
   "/clients": "Clients",
   "/tasks": "Tasks",
   "/settings": "Settings",

@@ -18,8 +18,8 @@ const StyledBreadcrumbs = styled(Breadcrumbs)(({ theme }) => ({
 
 const routeNameMap = {
   home: "Home",
-  analytics: "Analytics",
-  clients: "Clients",
+  plantoes: "Plantões",
+  usuarios: "Usuários",
   tasks: "Tasks",
   settings: "Settings",
   about: "About",

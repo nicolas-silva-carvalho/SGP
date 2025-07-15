@@ -13,6 +13,7 @@ import SignIn from "./pages/signin/SignIn";
 import SignUp from "./pages/signup/SignUp";
 import Home from "./pages/Home/Home";
 import Users from "./pages/users/Users";
+import Plantoes from "./pages/plantoes/Plantoes";
 
 function App() {
   const { auth, loading } = useAuth();
@@ -45,6 +46,10 @@ function App() {
             <Route
               path="/usuarios"
               element={auth ? <Users /> : <Navigate to="/login"></Navigate>}
+            />
+            <Route
+              path="/plantoes"
+              element={auth ? <Plantoes /> : <Navigate to="/login"></Navigate>}
             />
             <Route
               path="/login"
