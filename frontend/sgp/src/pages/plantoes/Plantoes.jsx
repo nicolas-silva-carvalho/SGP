@@ -3,18 +3,20 @@
 // --- FIX: Correção de compatibilidade para FullCalendar/Preact ---
 import * as preactCore from "preact";
 import * as preactCompat from "preact/compat";
-// Object.assign(preactCore, preactCompat);
+// Object.assign(preactCore, preactCompat); // This line is commented out, ensure it's not strictly needed or handle Preact setup elsewhere if issues arise
 // ----------------------------------------------------------------
 
 import * as React from "react";
+import { useEffect } from "react"; // Explicitly import useEffect
 import Layout from "../../components/Layout";
+import PlantaoModal from "../../components/PlantaoModal";
+import PlantaoDetailModal from "../../components/PlantaoDetailModal";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import ptBrLocale from "@fullcalendar/core/locales/pt-br";
 
-// Importações do MUI
 import {
   Box,
   Card,
@@ -33,12 +35,12 @@ import {
   InputAdornment,
   Divider,
   Skeleton,
-  createTheme, // O createTheme ainda é necessário para usar o objeto 'theme' localmente
+  createTheme,
   alpha,
   GlobalStyles,
+  Alert,
 } from "@mui/material";
 
-// Ícones do MUI
 import {
   Schedule as ClockIcon,
   People as UsersIcon,
@@ -52,7 +54,9 @@ import {
   Badge as BadgeIcon,
 } from "@mui/icons-material";
 
-// Tema Customizado (ainda precisamos do objeto para estilizações dinâmicas)
+import { useSelector, useDispatch } from "react-redux";
+import { getAllPlantoes, reset } from "../../slices/plantaoSlice";
+
 const theme = createTheme({
   palette: {
     primary: { main: "#3b82f6", dark: "#2563eb" },
@@ -92,7 +96,6 @@ const theme = createTheme({
 const calendarGlobalStyles = (
   <GlobalStyles
     styles={(theme) => ({
-      // <--- 2. CRIE UMA CONSTANTE COM OS ESTILOS
       ".fc-toolbar-title": {
         fontSize: "1.5rem !important",
         fontWeight: "700 !important",
@@ -119,88 +122,43 @@ const calendarGlobalStyles = (
 );
 
 export default function Plantoes(props) {
-  const [plantoes, setPlantoes] = React.useState([]);
-  const [modalOpen, setModalOpen] = React.useState(false);
+  const dispatch = useDispatch();
+  const { plantoes, error, success, message } = useSelector(
+    (state) => state.plantao
+  );
+  const [isInitialLoading, setIsInitialLoading] = React.useState(true);
+
+  const [isCreateModalOpen, setIsCreateModalOpen] = React.useState(false);
+  const [isDetailModalOpen, setIsDetailModalOpen] = React.useState(false);
   const [selectedPlantao, setSelectedPlantao] = React.useState(null);
-  const [loading, setLoading] = React.useState(true);
   const [searchTerm, setSearchTerm] = React.useState("");
 
-  React.useEffect(() => {
-    setTimeout(() => {
-      const dadosMocados = [
-        // ... seus dados mocados continuam aqui ...
-        {
-          id: 1,
-          data_inicio: "2025-07-15T08:00:00",
-          data_fim: "2025-07-15T20:00:00",
-          observacoes: "Plantão Diurno - Equipe A",
-          agentes: [
-            {
-              nome: "Sgt. Rocha",
-              cargo: "Comandante",
-              avatar: "https://i.pravatar.cc/40?u=1",
-            },
-            {
-              nome: "Cabo Silva",
-              cargo: "Patrulheiro",
-              avatar: "https://i.pravatar.cc/40?u=2",
-            },
-          ],
-          motoristas: [
-            { nome: "Cabo Borges", avatar: "https://i.pravatar.cc/40?u=3" },
-          ],
-          status: "ativo",
-          prioridade: "alta",
-          local: "Centro da Cidade",
-        },
-        {
-          id: 2,
-          data_inicio: "2025-07-16T20:00:00",
-          data_fim: "2025-07-17T08:00:00",
-          observacoes: "Plantão Noturno - Viatura 1234",
-          agentes: [
-            {
-              nome: "Sd. Lima",
-              cargo: "Patrulheiro",
-              avatar: "https://i.pravatar.cc/40?u=4",
-            },
-          ],
-          motoristas: [
-            { nome: "Sd. Costa", avatar: "https://i.pravatar.cc/40?u=5" },
-          ],
-          status: "pendente",
-          prioridade: "media",
-          local: "Zona Norte",
-        },
-        {
-          id: 3,
-          data_inicio: "2025-07-18T08:00:00",
-          data_fim: "2025-07-18T20:00:00",
-          observacoes: "Apoio em evento especial",
-          agentes: [
-            {
-              nome: "Insp. Ana",
-              cargo: "Inspetora",
-              avatar: "https://i.pravatar.cc/40?u=6",
-            },
-            {
-              nome: "Sgt. Pedro",
-              cargo: "Sargento",
-              avatar: "https://i.pravatar.cc/40?u=7",
-            },
-          ],
-          status: "concluido",
-          prioridade: "alta",
-          local: "Estádio Municipal",
-        },
-      ];
-      setPlantoes(dadosMocados);
-      setLoading(false);
-    }, 1500);
-  }, []);
+  useEffect(() => {
+    const fetchPlantoes = async () => {
+      setIsInitialLoading(true);
+      await dispatch(getAllPlantoes());
+      setIsInitialLoading(false);
+    };
+    fetchPlantoes();
+  }, [dispatch]);
+
+  useEffect(() => {
+    if (success && message) {
+      if (message.includes("Plantão criado com sucesso!")) {
+        console.log("Plantão criado com sucesso:", message);
+        setIsCreateModalOpen(false);
+        dispatch(getAllPlantoes());
+      }
+      dispatch(reset());
+    }
+    if (error && message) {
+      console.error("Erro na operação:", message);
+      dispatch(reset());
+    }
+  }, [success, error, message, dispatch]);
 
   const getPriorityColor = (prioridade) => {
-    switch (prioridade) {
+    switch (prioridade?.toLowerCase()) {
       case "alta":
         return "error";
       case "media":
@@ -212,11 +170,21 @@ export default function Plantoes(props) {
     }
   };
 
+  // Format events for FullCalendar
   const eventosFormatados = plantoes
     .filter(
       (plantao) =>
-        plantao.observacoes.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        plantao.local?.toLowerCase().includes(searchTerm.toLowerCase())
+        plantao && // Ensure plantao is not null or undefined
+        (plantao.observacoes
+          ?.toLowerCase()
+          .includes(searchTerm.toLowerCase()) ||
+          plantao.local?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          plantao.agentes?.some((agent) =>
+            agent.nome.toLowerCase().includes(searchTerm.toLowerCase())
+          ) ||
+          plantao.motoristas?.some((driver) =>
+            driver.nome.toLowerCase().includes(searchTerm.toLowerCase())
+          ))
     )
     .map((plantao) => ({
       id: String(plantao.id),
@@ -224,23 +192,33 @@ export default function Plantoes(props) {
       start: plantao.data_inicio,
       end: plantao.data_fim,
       backgroundColor:
-        plantao.status === "ativo"
+        plantao.status?.toLowerCase() === "ativo"
           ? theme.palette.success.main
-          : plantao.status === "pendente"
+          : plantao.status?.toLowerCase() === "pendente"
           ? theme.palette.warning.main
-          : theme.palette.primary.main,
+          : plantao.status?.toLowerCase() === "concluido"
+          ? theme.palette.primary.main
+          : theme.palette.grey[500],
       borderColor: "transparent",
       extendedProps: { ...plantao },
     }));
 
   const handleEventClick = (clickInfo) => {
     setSelectedPlantao(clickInfo.event.extendedProps);
-    setModalOpen(true);
+    setIsDetailModalOpen(true);
   };
 
-  const handleCloseModal = () => {
-    setModalOpen(false);
+  const handleCloseDetailModal = () => {
+    setIsDetailModalOpen(false);
     setSelectedPlantao(null);
+  };
+
+  const handleOpenCreateModal = () => {
+    setIsCreateModalOpen(true);
+  };
+
+  const handleCloseCreateModal = () => {
+    setIsCreateModalOpen(false);
   };
 
   return (
@@ -250,11 +228,20 @@ export default function Plantoes(props) {
         sx={{
           flexGrow: 1,
           p: { xs: 2, sm: 3 },
-          // Acessa o tema do contexto para o fundo, ou usa o fallback do nosso 'theme' local
         }}
       >
-        {loading ? (
-          // Skeleton Loading
+        {success && message && (
+          <Alert severity="success" sx={{ mb: 2 }}>
+            {message}
+          </Alert>
+        )}
+        {error && message && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {message}
+          </Alert>
+        )}
+
+        {isInitialLoading ? (
           <Box>
             <Skeleton variant="text" width="25%" height={40} sx={{ mb: 3 }} />
             <Grid container spacing={3} sx={{ mb: 4 }}>
@@ -275,9 +262,7 @@ export default function Plantoes(props) {
             />
           </Box>
         ) : (
-          // Conteúdo Principal
           <>
-            {/* Header da Página */}
             <Box
               sx={{
                 display: "flex",
@@ -307,15 +292,17 @@ export default function Plantoes(props) {
                 <Button variant="outlined" startIcon={<FilterIcon />}>
                   Filtros
                 </Button>
-                <Button variant="contained" startIcon={<PlusIcon />}>
+                <Button
+                  variant="contained"
+                  startIcon={<PlusIcon />}
+                  onClick={handleOpenCreateModal}
+                >
                   Novo Plantão
                 </Button>
               </Box>
             </Box>
 
-            {/* Cards de Estatísticas */}
             <Grid container spacing={3} sx={{ mb: 4 }}>
-              {/* Card Ativos */}
               <Grid item xs={12} sm={6} md={3}>
                 <Card
                   sx={{
@@ -339,7 +326,7 @@ export default function Plantoes(props) {
                           Plantões Ativos
                         </Typography>
                         <Typography variant="h4">
-                          {plantoes.filter((p) => p.status === "ativo").length}
+                          {plantoes.filter((p) => p.status === "Ativo").length}
                         </Typography>
                       </Box>
                       <Avatar sx={{ bgcolor: alpha("#ffffff", 0.2) }}>
@@ -349,7 +336,6 @@ export default function Plantoes(props) {
                   </CardContent>
                 </Card>
               </Grid>
-              {/* ... Outros cards ... */}
               <Grid item xs={12} sm={6} md={3}>
                 <Card
                   sx={{
@@ -460,35 +446,8 @@ export default function Plantoes(props) {
               </Grid>
             </Grid>
 
-            {/* Calendário */}
             <Card>
               <CardContent sx={{ p: 3 }}>
-                <style>{`
-                  .fc-toolbar-title {
-                    font-size: 1.5rem !important;
-                    font-weight: 700 !important;
-                    color: #1f2937 !important;
-                  }
-                  .fc .fc-button {
-                    background-color: ${theme.palette.primary.main} !important;
-                    border: none !important;
-                    box-shadow: none !important;
-                  }
-                  .fc .fc-button:hover {
-                    background-color: ${theme.palette.primary.dark} !important;
-                  }
-                  .fc .fc-daygrid-day.fc-day-today {
-                    background-color: ${alpha(
-                      theme.palette.primary.main,
-                      0.1
-                    )} !important;
-                  }
-                  .fc-event {
-                    padding: 4px 6px !important;
-                    font-weight: 500 !important;
-                    cursor: pointer !important;
-                  }
-                `}</style>
                 <FullCalendar
                   plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
                   initialView="dayGridMonth"
@@ -510,141 +469,16 @@ export default function Plantoes(props) {
           </>
         )}
 
-        {/* Modal de Detalhes */}
-        <Dialog
-          open={modalOpen}
-          onClose={handleCloseModal}
-          maxWidth="md"
-          fullWidth
-          PaperProps={{ sx: { borderRadius: 3 } }}
-        >
-          {selectedPlantao && (
-            <>
-              <DialogTitle
-                sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                }}
-              >
-                <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-                  <Avatar sx={{ bgcolor: "primary.main" }}>
-                    <ShieldIcon />
-                  </Avatar>
-                  <Typography variant="h5" component="h2">
-                    {selectedPlantao.observacoes}
-                  </Typography>
-                </Box>
-                <IconButton onClick={handleCloseModal}>
-                  <CloseIcon />
-                </IconButton>
-              </DialogTitle>
-              <DialogContent>
-                {/* ... conteúdo do modal ... */}
-                <Grid container spacing={2} sx={{ mb: 2 }}>
-                  <Grid item xs={6}>
-                    <Typography variant="caption" color="text.secondary">
-                      {" "}
-                      Início{" "}
-                    </Typography>
-                    <Typography>
-                      {new Date(selectedPlantao.data_inicio).toLocaleString(
-                        "pt-BR"
-                      )}
-                    </Typography>
-                  </Grid>
-                  <Grid item xs={6}>
-                    <Typography variant="caption" color="text.secondary">
-                      {" "}
-                      Fim{" "}
-                    </Typography>
-                    <Typography>
-                      {new Date(selectedPlantao.data_fim).toLocaleString(
-                        "pt-BR"
-                      )}
-                    </Typography>
-                  </Grid>
-                  <Grid item xs={6}>
-                    <Typography variant="caption" color="text.secondary">
-                      {" "}
-                      Local{" "}
-                    </Typography>
-                    <Typography>{selectedPlantao.local}</Typography>
-                  </Grid>
-                  <Grid item xs={6}>
-                    <Typography variant="caption" color="text.secondary">
-                      {" "}
-                      Prioridade{" "}
-                    </Typography>
-                    <Chip
-                      label={selectedPlantao.prioridade}
-                      color={getPriorityColor(selectedPlantao.prioridade)}
-                      size="small"
-                    />
-                  </Grid>
-                </Grid>
-                <Divider sx={{ my: 2 }} />
-                {selectedPlantao.agentes && (
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="h6" sx={{ mb: 1 }}>
-                      {" "}
-                      Agentes{" "}
-                    </Typography>
-                    {selectedPlantao.agentes.map((agente, index) => (
-                      <Paper
-                        key={index}
-                        variant="outlined"
-                        sx={{
-                          p: 1.5,
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 2,
-                          mb: 1,
-                        }}
-                      >
-                        <Avatar src={agente.avatar} />
-                        <Box>
-                          <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                            {agente.nome}
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            {agente.cargo}
-                          </Typography>
-                        </Box>
-                      </Paper>
-                    ))}
-                  </Box>
-                )}
-                {selectedPlantao.motoristas && (
-                  <Box>
-                    <Typography variant="h6" sx={{ mb: 1 }}>
-                      {" "}
-                      Motoristas{" "}
-                    </Typography>
-                    {selectedPlantao.motoristas.map((motorista, index) => (
-                      <Paper
-                        key={index}
-                        variant="outlined"
-                        sx={{
-                          p: 1.5,
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 2,
-                          mb: 1,
-                        }}
-                      >
-                        <Avatar src={motorista.avatar} />
-                        <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                          {motorista.nome}
-                        </Typography>
-                      </Paper>
-                    ))}
-                  </Box>
-                )}
-              </DialogContent>
-            </>
-          )}
-        </Dialog>
+        <PlantaoModal
+          open={isCreateModalOpen}
+          onClose={handleCloseCreateModal}
+        />
+
+        <PlantaoDetailModal
+          open={isDetailModalOpen}
+          onClose={handleCloseDetailModal}
+          plantao={selectedPlantao}
+        />
       </Box>
     </Layout>
   );

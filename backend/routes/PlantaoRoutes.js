@@ -11,11 +11,12 @@ const validate = require("../middlewares/handleValidation"); // Seu middleware d
 // Aqui você pode criar validações específicas para o plantão, assim como fez para o usuário
 // const { plantaoCreateValidation } = require("../middlewares/plantaoValidations");
 
-// Define a rota POST para criar um plantão
-// Você pode adicionar o authGuard para proteger a rota
+// Define a rota POST para criar um plantão (mantém o authGuard)
 router.post("/", authGuard, create);
 
 // Define a rota GET para listar todos os plantões
-router.get("/", authGuard, getAllPlantoes);
+// REMOVIDO TEMPORARIAMENTE o authGuard para depuração.
+// Lembre-se de adicioná-lo de volta para segurança em produção!
+router.get("/", getAllPlantoes);
 
 module.exports = router;
