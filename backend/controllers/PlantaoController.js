@@ -9,6 +9,9 @@ const create = async (req, res) => {
     data_inicio,
     data_fim,
     observacoes,
+    local,
+    prioridade,
+    status,
     agentes,
     motoristas,
     movimentacoes,
@@ -21,7 +24,14 @@ const create = async (req, res) => {
 
   try {
     // Organiza os dados para o Model
-    const plantaoData = { data_inicio, data_fim, observacoes };
+    const plantaoData = {
+      data_inicio,
+      data_fim,
+      observacoes,
+      local,
+      prioridade,
+      status,
+    };
     const relacionados = { agentes, motoristas, movimentacoes, abastecimentos };
 
     const novoPlantao = await Plantao.create(plantaoData, relacionados);
@@ -43,18 +53,32 @@ const create = async (req, res) => {
  */
 const update = async (req, res) => {
   const { id } = req.params;
+  // Pega todos os campos que podem ser atualizados do corpo da requisição
   const {
+    data_inicio,
     data_fim,
     observacoes,
+    local,
+    prioridade,
+    status,
     agentes,
     motoristas,
     movimentacoes,
-    abastecimentos,
   } = req.body;
 
   try {
-    const plantaoData = { data_fim, observacoes };
-    const relacionados = { agentes, motoristas, movimentacoes, abastecimentos };
+    // Monta o objeto com os dados principais do plantão para atualizar
+    const plantaoData = {
+      data_inicio,
+      data_fim,
+      observacoes,
+      local,
+      prioridade,
+      status,
+    };
+
+    // Monta o objeto com os dados das tabelas relacionadas
+    const relacionados = { agentes, motoristas, movimentacoes };
 
     const plantaoAtualizado = await Plantao.update(
       id,

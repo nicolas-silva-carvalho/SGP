@@ -21,6 +21,7 @@ import {
 } from "@mui/material";
 import {
   Close as CloseIcon,
+  Edit as EditIcon,
   Info as InfoIcon,
   Description as DescriptionIcon,
   Security as SecurityIcon,
@@ -65,7 +66,7 @@ const getStatusColor = (status) => {
   }
 };
 
-const PlantaoDetailModal = ({ open, onClose, plantao }) => {
+const PlantaoDetailModal = ({ open, onClose, plantao, onEdit }) => {
   if (!plantao) return null;
 
   const modalStyle = {
@@ -612,6 +613,33 @@ const PlantaoDetailModal = ({ open, onClose, plantao }) => {
                   }}
                 >
                   Fechar
+                </Button>
+                <Button
+                  variant="contained"
+                  onClick={onEdit}
+                  // Adicione a propriedade startIcon aqui
+                  startIcon={<EditIcon />}
+                  sx={{
+                    borderRadius: "12px",
+                    px: 4,
+                    py: 1.5,
+                    marginLeft: 2,
+                    background:
+                      "linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #48d3ecff 100%)",
+                    boxShadow: "0 8px 32px rgba(99, 102, 241, 0.4)",
+                    fontWeight: 700,
+                    fontSize: "0.875rem",
+                    textTransform: "none",
+                    "&:hover": {
+                      background:
+                        "linear-gradient(135deg, #5855eb 0%, #7c3aed 50%, #27abc2ff 100%)",
+                      boxShadow: "0 12px 40px rgba(99, 102, 241, 0.6)",
+                      transform: "translateY(-3px)",
+                    },
+                    transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                  }}
+                >
+                  Editar Plantão
                 </Button>
               </Box>
             </Box>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Modal,
   Box,
@@ -30,6 +30,7 @@ import {
 } from "@mui/material";
 import {
   Close as CloseIcon,
+  Update as UpdateIcon,
   CalendarToday as CalendarIcon,
   Person as PersonIcon,
   DirectionsCar as CarIcon,
@@ -46,20 +47,20 @@ import {
   Delete as DeleteIcon,
   Work as WorkAgente,
   CheckCircle as CheckCircleIcon,
-  Flag as FlagIcon,
-  LocationOn as LocationIcon,
-  Assignment as StatusIcon,
+  Flag as FlagIcon, // Para prioridade
+  LocationOn as LocationIcon, // Para local
+  Assignment as StatusIcon, // Para status
 } from "@mui/icons-material";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import { ptBR } from "date-fns/locale";
-import { useSelector, useDispatch } from "react-redux";
-import { createPlantao } from "../slices/plantaoSlice";
+import { useDispatch, useSelector } from "react-redux";
+import { updatePlantao, reset } from "../slices/plantaoSlice";
 import { toast } from "react-toastify";
+import HourglassTopIcon from "@mui/icons-material/HourglassTop";
 import TaskAltIcon from "@mui/icons-material/TaskAlt";
 import CancelIcon from "@mui/icons-material/Cancel";
-import HourglassTopIcon from "@mui/icons-material/HourglassTop";
 import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
 import RemoveIcon from "@mui/icons-material/Remove";
 import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
@@ -68,10 +69,7 @@ import EditNoteIcon from "@mui/icons-material/EditNote";
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import AccessTimeFilledIcon from "@mui/icons-material/AccessTimeFilled";
 
-const PlantaoModal = ({ open, onClose }) => {
-  const dispatch = useDispatch();
-  const { loading } = useSelector((state) => state.plantao);
-
+const PlantaoEditModal = ({ open, onClose, initialPlantaoData }) => {
   const [formData, setFormData] = useState({
     dataInicial: null,
     dataFinal: null,
@@ -81,9 +79,12 @@ const PlantaoModal = ({ open, onClose }) => {
     local: "",
   });
 
+  // Estados para cada seção
   const [agentes, setAgentes] = useState([]);
   const [motoristas, setMotoristas] = useState([]);
   const [movimentacoes, setMovimentacoes] = useState([]);
+
+  // Estados para formulários temporários
   const [tempAgente, setTempAgente] = useState({ nome: "", carga: "" });
   const [tempMotorista, setTempMotorista] = useState({ nome: "" });
   const [tempMovimentacao, setTempMovimentacao] = useState({
@@ -95,37 +96,115 @@ const PlantaoModal = ({ open, onClose }) => {
     kmAbastecido: "",
     valorPago: "",
   });
+
+  // Estados para edição
   const [editingAgente, setEditingAgente] = useState(null);
   const [editingMotorista, setEditingMotorista] = useState(null);
   const [editingMovimentacao, setEditingMovimentacao] = useState(null);
   const [editingAbastecimento, setEditingAbastecimento] = useState(null);
+
+  // Estado para controlar qual movimentação está sendo abastecida
   const [selectedMovimentacao, setSelectedMovimentacao] = useState(null);
 
+  const dispatch = useDispatch();
+  const { isLoading, isError, isSuccess, message } = useSelector(
+    (state) => state.plantao
+  );
+
+  // Populate form data when initialPlantaoData changes
+  useEffect(() => {
+    if (initialPlantaoData) {
+      setFormData({
+        dataInicial: initialPlantaoData.data_inicio
+          ? new Date(initialPlantaoData.data_inicio)
+          : null,
+        dataFinal: initialPlantaoData.data_fim
+          ? new Date(initialPlantaoData.data_fim)
+          : null,
+        observacoes: initialPlantaoData.observacoes || "",
+        status: initialPlantaoData.status || "Ativo",
+        prioridade: initialPlantaoData.prioridade || "Média",
+        local: initialPlantaoData.local || "",
+      });
+      setAgentes(
+        initialPlantaoData.agentes
+          ? initialPlantaoData.agentes.map((a) => ({
+              ...a,
+              carga: a.cargo,
+              id: Date.now() + Math.random(),
+            }))
+          : []
+      );
+      setMotoristas(
+        initialPlantaoData.motoristas
+          ? initialPlantaoData.motoristas.map((m) => ({
+              ...m,
+              id: Date.now() + Math.random(),
+            }))
+          : []
+      );
+      setMovimentacoes(
+        initialPlantaoData.movimentacoes
+          ? initialPlantaoData.movimentacoes.map((m) => ({
+              ...m,
+              kmInicial: m.kminicial.toString(),
+              kmFinal: m.kmfinal.toString(),
+              abastecimentos: m.abastecimentos
+                ? m.abastecimentos.map((a) => ({
+                    kmAbastecido: a.kilometroabastecimento.toString(),
+                    valorPago: a.valor.toString(),
+                    id: Date.now() + Math.random(),
+                  }))
+                : [],
+              id: Date.now() + Math.random(),
+            }))
+          : []
+      );
+    }
+  }, [initialPlantaoData]);
+
   const handleDateChange = (field) => (date) => {
-    setFormData({ ...formData, [field]: date });
+    setFormData({
+      ...formData,
+      [field]: date,
+    });
   };
 
   const handleInputChange = (section, field) => (event) => {
-    const value = event.target.value;
-    if (section === "main") setFormData({ ...formData, [field]: value });
-    else if (section === "agente")
-      setTempAgente({ ...tempAgente, [field]: value });
-    else if (section === "motorista")
-      setTempMotorista({ ...tempMotorista, [field]: value });
-    else if (section === "movimentacao")
-      setTempMovimentacao({ ...tempMovimentacao, [field]: value });
-    else if (section === "abastecimento")
-      setTempAbastecimento({ ...tempAbastecimento, [field]: value });
+    if (section === "main") {
+      setFormData({
+        ...formData,
+        [field]: event.target.value,
+      });
+    } else if (section === "agente") {
+      setTempAgente({
+        ...tempAgente,
+        [field]: event.target.value,
+      });
+    } else if (section === "motorista") {
+      setTempMotorista({
+        ...tempMotorista,
+        [field]: event.target.value,
+      });
+    } else if (section === "movimentacao") {
+      setTempMovimentacao({
+        ...tempMovimentacao,
+        [field]: event.target.value,
+      });
+    } else if (section === "abastecimento") {
+      setTempAbastecimento({
+        ...tempAbastecimento,
+        [field]: event.target.value,
+      });
+    }
   };
 
+  // Funções para Agentes
   const handleAddAgente = () => {
     if (tempAgente.nome.trim()) {
       if (editingAgente !== null) {
         const updatedAgentes = [...agentes];
-        updatedAgentes[editingAgente] = {
-          ...tempAgente,
-          id: agentes[editingAgente].id || Date.now(),
-        };
+        updatedAgentes[editingAgente] = { ...tempAgente, id: Date.now() };
         setAgentes(updatedAgentes);
         setEditingAgente(null);
       } else {
@@ -144,13 +223,14 @@ const PlantaoModal = ({ open, onClose }) => {
     setAgentes(agentes.filter((_, i) => i !== index));
   };
 
+  // Funções para Motoristas
   const handleAddMotorista = () => {
     if (tempMotorista.nome.trim()) {
       if (editingMotorista !== null) {
         const updatedMotoristas = [...motoristas];
         updatedMotoristas[editingMotorista] = {
           ...tempMotorista,
-          id: motoristas[editingMotorista].id || Date.now(),
+          id: Date.now(),
         };
         setMotoristas(updatedMotoristas);
         setEditingMotorista(null);
@@ -170,13 +250,14 @@ const PlantaoModal = ({ open, onClose }) => {
     setMotoristas(motoristas.filter((_, i) => i !== index));
   };
 
+  // Funções para Movimentações
   const handleAddMovimentacao = () => {
     if (tempMovimentacao.placa.trim()) {
       if (editingMovimentacao !== null) {
         const updatedMovimentacoes = [...movimentacoes];
         updatedMovimentacoes[editingMovimentacao] = {
           ...tempMovimentacao,
-          id: movimentacoes[editingMovimentacao].id || Date.now(),
+          id: Date.now(),
           abastecimentos:
             updatedMovimentacoes[editingMovimentacao].abastecimentos || [],
         };
@@ -193,22 +274,31 @@ const PlantaoModal = ({ open, onClose }) => {
   };
 
   const handleEditMovimentacao = (index) => {
-    setTempMovimentacao(movimentacoes[index]);
+    setTempMovimentacao({
+      placa: movimentacoes[index].placa,
+      kmInicial: movimentacoes[index].kmInicial,
+      kmFinal: movimentacoes[index].kmFinal,
+    });
     setEditingMovimentacao(index);
   };
 
   const handleDeleteMovimentacao = (index) => {
+    // Se a movimentação que está sendo excluída é a selecionada para abastecimento, limpar a seleção
     if (selectedMovimentacao === index) {
       setSelectedMovimentacao(null);
       setTempAbastecimento({ kmAbastecido: "", valorPago: "" });
       setEditingAbastecimento(null);
     }
+
+    // Ajustar o índice da movimentação selecionada se necessário
     if (selectedMovimentacao !== null && selectedMovimentacao > index) {
       setSelectedMovimentacao(selectedMovimentacao - 1);
     }
+
     setMovimentacoes(movimentacoes.filter((_, i) => i !== index));
   };
 
+  // Funções para Abastecimentos
   const handleSelectMovimentacaoForAbastecimento = (index) => {
     setSelectedMovimentacao(index);
     setTempAbastecimento({ kmAbastecido: "", valorPago: "" });
@@ -218,27 +308,30 @@ const PlantaoModal = ({ open, onClose }) => {
   const handleAddAbastecimento = () => {
     if (
       selectedMovimentacao !== null &&
-      tempAbastecimento.kmAbastecido.trim() &&
-      tempAbastecimento.valorPago.trim()
+      tempAbastecimento.kmAbastecido.trim()
     ) {
       const updatedMovimentacoes = [...movimentacoes];
-      const currentMovimentacao = updatedMovimentacoes[selectedMovimentacao];
+
       if (editingAbastecimento !== null) {
-        currentMovimentacao.abastecimentos[editingAbastecimento] = {
+        // Editando abastecimento existente
+        updatedMovimentacoes[selectedMovimentacao].abastecimentos[
+          editingAbastecimento
+        ] = {
           ...tempAbastecimento,
-          id:
-            currentMovimentacao.abastecimentos[editingAbastecimento].id ||
-            Date.now(),
+          id: Date.now(),
         };
         setEditingAbastecimento(null);
       } else {
-        if (!currentMovimentacao.abastecimentos)
-          currentMovimentacao.abastecimentos = [];
-        currentMovimentacao.abastecimentos.push({
+        // Adicionando novo abastecimento
+        if (!updatedMovimentacoes[selectedMovimentacao].abastecimentos) {
+          updatedMovimentacoes[selectedMovimentacao].abastecimentos = [];
+        }
+        updatedMovimentacoes[selectedMovimentacao].abastecimentos.push({
           ...tempAbastecimento,
           id: Date.now(),
         });
       }
+
       setMovimentacoes(updatedMovimentacoes);
       setTempAbastecimento({ kmAbastecido: "", valorPago: "" });
     }
@@ -248,7 +341,10 @@ const PlantaoModal = ({ open, onClose }) => {
     if (selectedMovimentacao !== null) {
       const abastecimento =
         movimentacoes[selectedMovimentacao].abastecimentos[abastIndex];
-      setTempAbastecimento(abastecimento);
+      setTempAbastecimento({
+        kmAbastecido: abastecimento.kmAbastecido,
+        valorPago: abastecimento.valorPago,
+      });
       setEditingAbastecimento(abastIndex);
     }
   };
@@ -261,6 +357,8 @@ const PlantaoModal = ({ open, onClose }) => {
           (_, i) => i !== abastIndex
         );
       setMovimentacoes(updatedMovimentacoes);
+
+      // Se estava editando este abastecimento, cancelar a edição
       if (editingAbastecimento === abastIndex) {
         setEditingAbastecimento(null);
         setTempAbastecimento({ kmAbastecido: "", valorPago: "" });
@@ -276,31 +374,14 @@ const PlantaoModal = ({ open, onClose }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-
-    if (!formData.dataInicial) {
-      toast.error("Por favor, selecione a Data Inicial.");
-      return;
-    }
-    if (!formData.dataFinal) {
-      toast.error("Por favor, selecione a Data Final.");
-      return;
-    }
-    // Validação da ordem das datas (após garantir que ambas existem)
-    if (formData.dataInicial > formData.dataFinal) {
-      toast.error("A data inicial não pode ser posterior à data final.");
-      return;
-    }
-    if (!formData.status || formData.status.trim() === "") {
-      toast.error("Por favor, selecione um Status.");
-      return;
-    }
-    if (!formData.local || formData.local.trim() === "") {
-      toast.error("Por favor, preencha o campo Local.");
-      return;
-    }
-    if (!formData.observacoes || formData.observacoes.trim() === "") {
-      toast.error("Por favor, preencha o campo de Observações.");
-      return;
+    // Format data to match backend expectations
+    if (formData.dataInicial && formData.dataFinal) {
+      // Compara se a data inicial é posterior à data final
+      if (formData.dataInicial > formData.dataFinal) {
+        // Se for, exibe um toast de erro e interrompe a função
+        toast.error("A data inicial não pode ser posterior à data final.");
+        return; // Impede que o resto da função seja executado
+      }
     }
 
     const plantaoDataToSend = {
@@ -316,23 +397,60 @@ const PlantaoModal = ({ open, onClose }) => {
         nome: agent.nome,
         cargo: agent.carga,
       })),
-      motoristas: motoristas.map((driver) => ({ nome: driver.nome })),
+      motoristas: motoristas.map((driver) => ({
+        nome: driver.nome,
+      })),
       movimentacoes: movimentacoes.map((mov) => ({
         placa: mov.placa,
-        kminicial: mov.kmInicial ? parseFloat(mov.kmInicial) : null,
-        kmfinal: mov.kmFinal ? parseFloat(mov.kmFinal) : null,
+        kminicial: Number.parseFloat(mov.kmInicial),
+        kmfinal: Number.parseFloat(mov.kmFinal),
         abastecimentos: mov.abastecimentos.map((abs) => ({
-          kilometroabastecimento: abs.kmAbastecido
-            ? parseFloat(abs.kmAbastecido)
-            : null,
-          valor: abs.valorPago ? parseFloat(abs.valorPago) : null,
+          kilometroabastecimento: Number.parseFloat(abs.kmAbastecido),
+          valor: Number.parseFloat(abs.valorPago),
         })),
       })),
     };
-    dispatch(createPlantao(plantaoDataToSend));
+    console.log("Updating Plantão Data:", plantaoDataToSend);
+    dispatch(
+      updatePlantao({
+        id: initialPlantaoData.id,
+        plantaoData: plantaoDataToSend,
+      })
+    );
   };
 
-  // All styling objects (modalStyle, contentStyle, etc.) remain the same
+  useEffect(() => {
+    if (isSuccess && message) {
+      toast.success(message);
+      setFormData({
+        dataInicial: null,
+        dataFinal: null,
+        observacoes: "",
+        status: "Ativo",
+        prioridade: "Média",
+        local: "",
+      });
+      setAgentes([]);
+      setMotoristas([]);
+      setMovimentacoes([]);
+      setTempAgente({ nome: "", carga: "" });
+      setTempMotorista({ nome: "" });
+      setTempMovimentacao({ placa: "", kmInicial: "", kmFinal: "" });
+      setTempAbastecimento({ kmAbastecido: "", valorPago: "" });
+      setEditingAgente(null);
+      setEditingMotorista(null);
+      setEditingMovimentacao(null);
+      setEditingAbastecimento(null);
+      setSelectedMovimentacao(null);
+      onClose();
+      dispatch(reset());
+    }
+    if (isError && message) {
+      toast.error(message);
+      dispatch(reset());
+    }
+  }, [isSuccess, isError, message, dispatch, onClose]);
+
   const modalStyle = {
     position: "absolute",
     top: "50%",
@@ -504,7 +622,7 @@ const PlantaoModal = ({ open, onClose }) => {
                       component="h2"
                       sx={{ fontWeight: "bold" }}
                     >
-                      Novo Plantão
+                      Editar Plantão
                     </Typography>
                   </Box>
                   <IconButton
@@ -528,8 +646,13 @@ const PlantaoModal = ({ open, onClose }) => {
                   p: 4,
                   maxHeight: "calc(90vh - 120px)",
                   overflowY: "auto",
-                  "&::-webkit-scrollbar": { width: "0.4em", height: "0.4em" },
-                  "&::-webkit-scrollbar-track": { background: "transparent" },
+                  "&::-webkit-scrollbar": {
+                    width: "0.4em",
+                    height: "0.4em",
+                  },
+                  "&::-webkit-scrollbar-track": {
+                    background: "transparent",
+                  },
                   "&::-webkit-scrollbar-thumb": {
                     backgroundColor: "rgba(0,0,0,0.0)",
                     borderRadius: "10px",
@@ -538,8 +661,7 @@ const PlantaoModal = ({ open, onClose }) => {
                   "-ms-overflow-style": "none",
                 }}
               >
-                {/* All form sections go here, no changes needed in the JSX structure */}
-                {/* Período do Plantão */}
+                {/* Período do Plantão - Layout Melhorado */}
                 <Box sx={sectionStyle}>
                   <CardContent sx={{ p: 4, marginBottom: 2 }}>
                     <Box sx={{ display: "flex", alignItems: "center", mb: 4 }}>
@@ -581,7 +703,7 @@ const PlantaoModal = ({ open, onClose }) => {
                         size="medium"
                         sx={{
                           background: sections[0].gradient,
-                          color: "#ffffff",
+                          color: "white",
                           fontWeight: 700,
                           fontSize: "0.875rem",
                           height: "32px",
@@ -590,14 +712,14 @@ const PlantaoModal = ({ open, onClose }) => {
                       />
                     </Box>
 
-                    {/* Período de Duração - Agrupado */}
+                    {/* Cards de Data e Hora */}
                     <Box sx={{ mb: 4 }}>
                       <Typography
                         variant="h6"
                         sx={{
                           fontWeight: 700,
                           color: "#374151",
-                          mb: 2,
+                          mb: 3,
                           fontSize: "1.1rem",
                           display: "flex",
                           alignItems: "center",
@@ -677,14 +799,14 @@ const PlantaoModal = ({ open, onClose }) => {
                       </Box>
                     </Box>
 
-                    {/* Informações do Plantão - Agrupado */}
+                    {/* Cards de Informações Adicionais */}
                     <Box sx={{ mb: 4 }}>
                       <Typography
                         variant="h6"
                         sx={{
                           fontWeight: 700,
                           color: "#374151",
-                          mb: 2,
+                          mb: 3,
                           fontSize: "1.1rem",
                           display: "flex",
                           alignItems: "center",
@@ -704,7 +826,7 @@ const PlantaoModal = ({ open, onClose }) => {
                               sx={{
                                 fontWeight: 600,
                                 color: "#10b981",
-                                mb: 1,
+                                mb: 2,
                                 fontSize: "0.95rem",
                                 display: "flex",
                                 alignItems: "center",
@@ -720,7 +842,7 @@ const PlantaoModal = ({ open, onClose }) => {
                                 onChange={handleInputChange("main", "status")}
                                 sx={{
                                   borderRadius: "12px",
-                                  backgroundColor: "rgba(248, 250, 252, 0.9)",
+                                  backgroundColor: "rgba(255, 255, 255, 0.8)",
                                   "& .MuiOutlinedInput-notchedOutline": {
                                     border: "none",
                                   },
@@ -771,7 +893,7 @@ const PlantaoModal = ({ open, onClose }) => {
                               sx={{
                                 fontWeight: 600,
                                 color: "#f59e0b",
-                                mb: 1,
+                                mb: 2,
                                 fontSize: "0.95rem",
                                 display: "flex",
                                 alignItems: "center",
@@ -790,7 +912,7 @@ const PlantaoModal = ({ open, onClose }) => {
                                 )}
                                 sx={{
                                   borderRadius: "12px",
-                                  backgroundColor: "rgba(248, 250, 252, 0.9)",
+                                  backgroundColor: "rgba(255, 255, 255, 0.8)",
                                   "& .MuiOutlinedInput-notchedOutline": {
                                     border: "none",
                                   },
@@ -844,7 +966,7 @@ const PlantaoModal = ({ open, onClose }) => {
                               sx={{
                                 fontWeight: 600,
                                 color: "#3b82f6",
-                                mb: 1,
+                                mb: 2,
                                 fontSize: "0.95rem",
                                 display: "flex",
                                 alignItems: "center",
@@ -859,34 +981,65 @@ const PlantaoModal = ({ open, onClose }) => {
                               placeholder="Ex: Setor A, Prédio Central..."
                               value={formData.local}
                               onChange={handleInputChange("main", "local")}
-                              sx={textFieldStyle}
+                              sx={{
+                                "& .MuiOutlinedInput-root": {
+                                  borderRadius: "12px",
+                                  backgroundColor: "rgba(255, 255, 255, 0.8)",
+                                  border: "none",
+                                  "& fieldset": {
+                                    border: "none",
+                                  },
+                                  "&:hover": {
+                                    backgroundColor:
+                                      "rgba(255, 255, 255, 0.95)",
+                                    boxShadow: "0 2px 8px rgba(0, 0, 0, 0.08)",
+                                  },
+                                  "&.Mui-focused": {
+                                    backgroundColor: "rgba(255, 255, 255, 1)",
+                                    boxShadow:
+                                      "0 0 0 3px rgba(59, 130, 246, 0.1)",
+                                  },
+                                },
+                              }}
                             />
                           </Grid>
                         </Grid>
                       </Box>
                     </Box>
 
-                    {/* Observações Adicionais - Agrupado */}
+                    {/* Card de Observações */}
                     <Box>
                       <Typography
                         variant="h6"
                         sx={{
                           fontWeight: 700,
                           color: "#374151",
-                          mb: 2, // mb: 3 no original, ajustado para consistência
+                          mb: 3,
                           fontSize: "1.1rem",
                           display: "flex",
                           alignItems: "center",
                           gap: 1,
                         }}
                       >
-                        {/* Ícone do MUI substituindo o emoji */}
                         <EditNoteIcon color="action" />
                         Observações Adicionais
                       </Typography>
 
-                      {/* Este Box e TextField já estão corretos para uma área de texto */}
-                      <Box sx={groupedInputContainerStyle}>
+                      <Box
+                        sx={{
+                          background:
+                            "linear-gradient(135deg, rgba(107, 114, 128, 0.05) 0%, rgba(75, 85, 99, 0.05) 100%)",
+                          borderRadius: "16px",
+                          p: 3,
+                          border: "2px solid rgba(107, 114, 128, 0.1)",
+                          transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                          "&:hover": {
+                            transform: "translateY(-2px)",
+                            boxShadow: "0 12px 32px rgba(107, 114, 128, 0.15)",
+                            border: "2px solid rgba(107, 114, 128, 0.2)",
+                          },
+                        }}
+                      >
                         <TextField
                           variant="standard"
                           fullWidth
@@ -926,8 +1079,8 @@ const PlantaoModal = ({ open, onClose }) => {
                     </Box>
                   </CardContent>
                 </Box>
-                {/* Agentes, Motoristas, Movimentações sections etc. - no structural changes needed */}
 
+                {/* Agentes Responsáveis */}
                 <Box sx={sectionStyle}>
                   <CardContent sx={{ p: 4 }}>
                     <Box sx={{ display: "flex", alignItems: "center", mb: 4 }}>
@@ -1655,10 +1808,7 @@ const PlantaoModal = ({ open, onClose }) => {
                                         onClick={() =>
                                           handleEditAbastecimento(index)
                                         }
-                                        sx={{
-                                          color: sections[4].color,
-                                          mr: 1,
-                                        }}
+                                        sx={{ color: sections[4].color, mr: 1 }}
                                       >
                                         <EditIcon />
                                       </IconButton>
@@ -1681,7 +1831,15 @@ const PlantaoModal = ({ open, onClose }) => {
                   </Box>
                 )}
 
-                {/* Footer with buttons */}
+                {isLoading && (
+                  <Box
+                    sx={{ display: "flex", justifyContent: "center", my: 4 }}
+                  >
+                    <CircularProgress />
+                  </Box>
+                )}
+
+                {/* Botões de Ação */}
                 <Box
                   sx={{
                     display: "flex",
@@ -1696,16 +1854,20 @@ const PlantaoModal = ({ open, onClose }) => {
                     variant="outlined"
                     onClick={onClose}
                     sx={{
-                      ...buttonStyle,
+                      borderRadius: "12px",
                       px: 3,
                       py: 1.5,
                       borderColor: "rgba(0, 0, 0, 0.12)",
                       color: "#6b7280",
+                      fontWeight: 600,
+                      fontSize: "0.875rem",
+                      textTransform: "none",
                       "&:hover": {
                         borderColor: "rgba(0, 0, 0, 0.2)",
                         backgroundColor: "rgba(0, 0, 0, 0.04)",
                         transform: "translateY(-2px)",
                       },
+                      transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
                     }}
                   >
                     Cancelar
@@ -1713,27 +1875,27 @@ const PlantaoModal = ({ open, onClose }) => {
                   <Button
                     variant="contained"
                     onClick={handleSubmit}
-                    disabled={loading}
+                    startIcon={<UpdateIcon />} // Ícone adicionado aqui
                     sx={{
-                      ...buttonStyle,
+                      borderRadius: "12px",
                       px: 4,
                       py: 1.5,
                       background:
                         "linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #48d3ecff 100%)",
                       boxShadow: "0 8px 32px rgba(99, 102, 241, 0.4)",
+                      fontWeight: 700,
+                      fontSize: "0.875rem",
+                      textTransform: "none",
                       "&:hover": {
                         background:
                           "linear-gradient(135deg, #5855eb 0%, #7c3aed 50%, #27abc2ff 100%)",
                         boxShadow: "0 12px 40px rgba(99, 102, 241, 0.6)",
                         transform: "translateY(-3px)",
                       },
+                      transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
                     }}
                   >
-                    {loading ? (
-                      <CircularProgress size={24} color="inherit" />
-                    ) : (
-                      "Salvar Plantão"
-                    )}
+                    Atualizar Plantão
                   </Button>
                 </Box>
               </Box>
@@ -1745,4 +1907,4 @@ const PlantaoModal = ({ open, onClose }) => {
   );
 };
 
-export default PlantaoModal;
+export default PlantaoEditModal;

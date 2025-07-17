@@ -1,22 +1,16 @@
 "use client";
 
-// --- FIX: Correção de compatibilidade para FullCalendar/Preact ---
-import * as preactCore from "preact";
-import * as preactCompat from "preact/compat";
-// Object.assign(preactCore, preactCompat); // This line is commented out, ensure it's not strictly needed or handle Preact setup elsewhere if issues arise
-// ----------------------------------------------------------------
-
 import * as React from "react";
-import { useEffect } from "react"; // Explicitly import useEffect
+import { useEffect, useState } from "react";
 import Layout from "../../components/Layout";
 import PlantaoModal from "../../components/PlantaoModal";
 import PlantaoDetailModal from "../../components/PlantaoDetailModal";
+import PlantaoEditModal from "../../components/PlantaoEditModal";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import ptBrLocale from "@fullcalendar/core/locales/pt-br";
-
 import {
   Box,
   Card,
@@ -24,36 +18,24 @@ import {
   Typography,
   Button,
   TextField,
-  Dialog,
-  DialogContent,
-  DialogTitle,
   Avatar,
-  Chip,
   Grid,
-  Paper,
-  IconButton,
   InputAdornment,
-  Divider,
   Skeleton,
   createTheme,
   alpha,
   GlobalStyles,
   Alert,
 } from "@mui/material";
-
 import {
   Schedule as ClockIcon,
   People as UsersIcon,
-  DirectionsCar as CarIcon,
   Security as ShieldIcon,
-  LocationOn as MapPinIcon,
   Add as PlusIcon,
   FilterList as FilterIcon,
   Search as SearchIcon,
-  Close as CloseIcon,
   Badge as BadgeIcon,
 } from "@mui/icons-material";
-
 import { useSelector, useDispatch } from "react-redux";
 import { getAllPlantoes, reset } from "../../slices/plantaoSlice";
 
@@ -72,25 +54,6 @@ const theme = createTheme({
     h6: { fontWeight: 600 },
   },
   shape: { borderRadius: 12 },
-  components: {
-    MuiCard: {
-      styleOverrides: {
-        root: {
-          boxShadow:
-            "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
-        },
-      },
-    },
-    MuiButton: {
-      styleOverrides: {
-        root: {
-          textTransform: "none",
-          fontWeight: 500,
-          borderRadius: 8,
-        },
-      },
-    },
-  },
 });
 
 const calendarGlobalStyles = (
@@ -123,15 +86,20 @@ const calendarGlobalStyles = (
 
 export default function Plantoes(props) {
   const dispatch = useDispatch();
-  const { plantoes, error, success, message } = useSelector(
-    (state) => state.plantao
-  );
-  const [isInitialLoading, setIsInitialLoading] = React.useState(true);
+  const {
+    plantoes = [],
+    error,
+    success,
+    message,
+  } = useSelector((state) => state.plantao);
 
-  const [isCreateModalOpen, setIsCreateModalOpen] = React.useState(false);
-  const [isDetailModalOpen, setIsDetailModalOpen] = React.useState(false);
-  const [selectedPlantao, setSelectedPlantao] = React.useState(null);
-  const [searchTerm, setSearchTerm] = React.useState("");
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [selectedPlantao, setSelectedPlantao] = useState(null);
 
   useEffect(() => {
     const fetchPlantoes = async () => {
@@ -143,52 +111,50 @@ export default function Plantoes(props) {
   }, [dispatch]);
 
   useEffect(() => {
-    if (success && message) {
-      if (message.includes("Plantão criado com sucesso!")) {
-        console.log("Plantão criado com sucesso:", message);
+    if (success) {
+      if (message?.includes("sucesso")) {
         setIsCreateModalOpen(false);
+        setIsEditModalOpen(false);
+        setIsDetailModalOpen(false);
+        setSelectedPlantao(null);
         dispatch(getAllPlantoes());
       }
-      dispatch(reset());
+      const timer = setTimeout(() => dispatch(reset()), 3000);
+      return () => clearTimeout(timer);
     }
-    if (error && message) {
+    if (error) {
       console.error("Erro na operação:", message);
-      dispatch(reset());
+      const timer = setTimeout(() => dispatch(reset()), 3000);
+      return () => clearTimeout(timer);
     }
   }, [success, error, message, dispatch]);
 
-  const getPriorityColor = (prioridade) => {
-    switch (prioridade?.toLowerCase()) {
-      case "alta":
-        return "error";
-      case "media":
-        return "warning";
-      case "baixa":
-        return "success";
-      default:
-        return "default";
-    }
-  };
-
-  // Format events for FullCalendar
-  const eventosFormatados = plantoes
+  const eventosFormatados = (plantoes || [])
     .filter(
       (plantao) =>
-        plantao && // Ensure plantao is not null or undefined
-        (plantao.observacoes
-          ?.toLowerCase()
-          .includes(searchTerm.toLowerCase()) ||
-          plantao.local?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        plantao &&
+        ((plantao.observacoes?.toLowerCase() ?? "").includes(
+          searchTerm.toLowerCase()
+        ) ||
+          (plantao.local?.toLowerCase() ?? "").includes(
+            searchTerm.toLowerCase()
+          ) ||
           plantao.agentes?.some((agent) =>
-            agent.nome.toLowerCase().includes(searchTerm.toLowerCase())
+            (agent?.nome?.toLowerCase() ?? "").includes(
+              searchTerm.toLowerCase()
+            )
           ) ||
           plantao.motoristas?.some((driver) =>
-            driver.nome.toLowerCase().includes(searchTerm.toLowerCase())
+            (driver?.nome?.toLowerCase() ?? "").includes(
+              searchTerm.toLowerCase()
+            )
           ))
     )
     .map((plantao) => ({
       id: String(plantao.id),
-      title: plantao.observacoes || "Plantão",
+      title:
+        plantao.observacoes ||
+        `Plantão em ${plantao.local || "Local não definido"}`,
       start: plantao.data_inicio,
       end: plantao.data_fim,
       backgroundColor:
@@ -221,15 +187,34 @@ export default function Plantoes(props) {
     setIsCreateModalOpen(false);
   };
 
+  const handleOpenEditModal = () => {
+    setIsDetailModalOpen(false);
+    setIsEditModalOpen(true);
+  };
+
+  const handleCloseEditModal = () => {
+    setIsEditModalOpen(false);
+    setSelectedPlantao(null);
+  };
+
+  const plantoesAtivos = (plantoes || []).filter(
+    (p) => p && p.status === "Ativo"
+  ).length;
+  const plantoesPendentes = (plantoes || []).filter(
+    (p) => p && (p.status === "pendente" || p.status === "Pendente")
+  ).length;
+  const plantoesConcluidos = (plantoes || []).filter(
+    (p) => p && p.status === "Concluído"
+  ).length;
+  const totalAgentes = (plantoes || []).reduce(
+    (acc, p) => acc + ((p && p.agentes?.length) || 0),
+    0
+  );
+
   return (
     <Layout {...props} title="Calendário de Plantões">
       {calendarGlobalStyles}
-      <Box
-        sx={{
-          flexGrow: 1,
-          p: { xs: 2, sm: 3 },
-        }}
-      >
+      <Box sx={{ flexGrow: 1, p: { xs: 2, sm: 3 } }}>
         {success && message && (
           <Alert severity="success" sx={{ mb: 2 }}>
             {message}
@@ -240,7 +225,6 @@ export default function Plantoes(props) {
             {message}
           </Alert>
         )}
-
         {isInitialLoading ? (
           <Box>
             <Skeleton variant="text" width="25%" height={40} sx={{ mb: 3 }} />
@@ -266,8 +250,11 @@ export default function Plantoes(props) {
             <Box
               sx={{
                 display: "flex",
+
                 justifyContent: "space-between",
+
                 alignItems: "center",
+
                 mb: 4,
               }}
             >
@@ -286,6 +273,7 @@ export default function Plantoes(props) {
                         <SearchIcon color="action" />
                       </InputAdornment>
                     ),
+
                     sx: { borderRadius: 2 },
                   }}
                 />
@@ -301,7 +289,6 @@ export default function Plantoes(props) {
                 </Button>
               </Box>
             </Box>
-
             <Grid container spacing={3} sx={{ mb: 4 }}>
               <Grid item xs={12} sm={6} md={3}>
                 <Card
@@ -325,9 +312,7 @@ export default function Plantoes(props) {
                         >
                           Plantões Ativos
                         </Typography>
-                        <Typography variant="h4">
-                          {plantoes.filter((p) => p.status === "Ativo").length}
-                        </Typography>
+                        <Typography variant="h4">{plantoesAtivos}</Typography>
                       </Box>
                       <Avatar sx={{ bgcolor: alpha("#ffffff", 0.2) }}>
                         <ShieldIcon />
@@ -359,10 +344,7 @@ export default function Plantoes(props) {
                           Pendentes
                         </Typography>
                         <Typography variant="h4">
-                          {
-                            plantoes.filter((p) => p.status === "pendente")
-                              .length
-                          }
+                          {plantoesPendentes}
                         </Typography>
                       </Box>
                       <Avatar sx={{ bgcolor: alpha("#ffffff", 0.2) }}>
@@ -395,10 +377,7 @@ export default function Plantoes(props) {
                           Concluídos
                         </Typography>
                         <Typography variant="h4">
-                          {
-                            plantoes.filter((p) => p.status === "concluido")
-                              .length
-                          }
+                          {plantoesConcluidos}
                         </Typography>
                       </Box>
                       <Avatar sx={{ bgcolor: alpha("#ffffff", 0.2) }}>
@@ -430,12 +409,7 @@ export default function Plantoes(props) {
                         >
                           Total Agentes
                         </Typography>
-                        <Typography variant="h4">
-                          {plantoes.reduce(
-                            (acc, p) => acc + (p.agentes?.length || 0),
-                            0
-                          )}
-                        </Typography>
+                        <Typography variant="h4">{totalAgentes}</Typography>
                       </Box>
                       <Avatar sx={{ bgcolor: alpha("#ffffff", 0.2) }}>
                         <UsersIcon />
@@ -445,7 +419,6 @@ export default function Plantoes(props) {
                 </Card>
               </Grid>
             </Grid>
-
             <Card>
               <CardContent sx={{ p: 3 }}>
                 <FullCalendar
@@ -474,11 +447,22 @@ export default function Plantoes(props) {
           onClose={handleCloseCreateModal}
         />
 
-        <PlantaoDetailModal
-          open={isDetailModalOpen}
-          onClose={handleCloseDetailModal}
-          plantao={selectedPlantao}
-        />
+        {selectedPlantao && (
+          <>
+            <PlantaoDetailModal
+              open={isDetailModalOpen}
+              onClose={handleCloseDetailModal}
+              plantao={selectedPlantao}
+              onEdit={handleOpenEditModal}
+            />
+
+            <PlantaoEditModal
+              open={isEditModalOpen}
+              onClose={handleCloseEditModal}
+              initialPlantaoData={selectedPlantao}
+            />
+          </>
+        )}
       </Box>
     </Layout>
   );

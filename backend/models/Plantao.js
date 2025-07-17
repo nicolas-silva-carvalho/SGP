@@ -114,6 +114,66 @@ const create = async (plantaoData, relacionados = {}) => {
 };
 
 /**
+ * Sincroniza uma tabela relacionada (agentes, motoristas, etc.) com base nos dados do frontend.
+ * @param {object} client - O cliente da transação do banco de dados.
+ * @param {string} tabela - O nome da tabela (ex: 'agentes').
+ * @param {string} colunaFk - O nome da coluna da chave estrangeira (ex: 'plantao_id').
+ * @param {number} idFk - O valor da chave estrangeira (o ID do plantão).
+ * @param {Array<object>} itensFrontend - A lista de itens vinda do frontend (deve conter 'id' para itens existentes).
+ * @param {Array<string>} colunas - As colunas a serem inseridas/atualizadas (ex: ['nome', 'cargo']).
+ */
+const sincronizarRelacionados = async (
+  client,
+  tabela,
+  colunaFk,
+  idFk,
+  itensFrontend,
+  colunas
+) => {
+  // 1. Busca os IDs dos itens que já existem no banco de dados para este plantão
+  const resDb = await client.query(
+    `SELECT id FROM ${tabela} WHERE ${colunaFk} = $1`,
+    [idFk]
+  );
+  const idsDb = new Set(resDb.rows.map((row) => row.id));
+
+  const idsFrontend = new Set(
+    itensFrontend.map((item) => item.id).filter((id) => id)
+  ); // Filtra IDs nulos/undefined
+
+  // 2. Apaga os itens que estão no DB mas não vieram do frontend
+  for (const id of idsDb) {
+    if (!idsFrontend.has(id)) {
+      await client.query(`DELETE FROM ${tabela} WHERE id = $1`, [id]);
+    }
+  }
+
+  // 3. Insere ou Atualiza os itens que vieram do frontend
+  for (const item of itensFrontend) {
+    if (item.id && idsDb.has(item.id)) {
+      // UPDATE: O item já existe, então atualiza
+      const setClauses = colunas
+        .map((col, i) => `${col} = $${i + 2}`)
+        .join(", ");
+      const values = colunas.map((col) => item[col]);
+      await client.query(`UPDATE ${tabela} SET ${setClauses} WHERE id = $1`, [
+        item.id,
+        ...values,
+      ]);
+    } else {
+      // INSERT: O item é novo (não tem ID ou o ID não está no DB)
+      const colunasStr = colunas.join(", ");
+      const placeholders = colunas.map((_, i) => `$${i + 2}`).join(", ");
+      const values = colunas.map((col) => item[col]);
+      await client.query(
+        `INSERT INTO ${tabela} (${colunaFk}, ${colunasStr}) VALUES ($1, ${placeholders})`,
+        [idFk, ...values]
+      );
+    }
+  }
+};
+
+/**
  * Atualiza um plantão, permitindo alterar dados principais e/ou adicionar novas entidades relacionadas.
  * Este método adiciona novas entidades, mas não edita ou remove as existentes por ID.
  * Para edição/remoção, seriam necessárias funções específicas (ex: updateAgent, deleteAgent).
@@ -127,58 +187,71 @@ const update = async (plantaoId, plantaoData, relacionados = {}) => {
   try {
     await client.query("BEGIN");
 
-    // 1. Atualiza os dados do plantão principal (se fornecidos)
-    const { data_fim, observacoes, status, prioridade, local } = plantaoData;
-    // Usamos COALESCE para data_fim e observacoes, pois eles podem ser nulos.
-    // Para status, prioridade e local, se o valor for explicitamente passado (mesmo que vazio),
-    // queremos usá-lo, não o valor antigo do DB.
-    // Se o valor for 'undefined' (não enviado), COALESCE ainda funcionará.
+    // 1. Atualiza os dados do plantão principal
+    // ADICIONADO data_inicio na desestruturação
+    const { data_inicio, data_fim, observacoes, status, prioridade, local } =
+      plantaoData;
+
+    // AJUSTADO: Adicionamos data_inicio = $1 na query e reordenamos os parâmetros
     await client.query(
-      "UPDATE plantao SET data_fim = COALESCE($1, data_fim), observacoes = COALESCE($2, observacoes), status = $3, prioridade = $4, local = $5 WHERE id = $6",
+      "UPDATE plantao SET data_inicio = $1, data_fim = $2, observacoes = $3, status = $4, prioridade = $5, local = $6 WHERE id = $7",
       [
+        data_inicio, // Parâmetro adicionado
         data_fim,
         observacoes,
-        status ?? null, // Usar ?? null para permitir string vazia ou definir como null se undefined
-        prioridade ?? null, // Usar ?? null para permitir string vazia ou definir como null se undefined
-        local ?? null, // Usar ?? null para permitir string vazia ou definir como null se undefined
+        status,
+        prioridade,
+        local,
         plantaoId,
       ]
     );
 
-    // 2. Adiciona as novas entidades relacionadas diretas (agentes, motoristas)
-    await inserirRelacionadosDiretos(
-      client,
-      "agentes",
-      relacionados.agentes,
-      plantaoId
+    // 2. Sincroniza os relacionados, preservando os IDs (agentes e motoristas)
+    if (relacionados.agentes) {
+      await sincronizarRelacionados(
+        client,
+        "agentes",
+        "plantao_id",
+        plantaoId,
+        relacionados.agentes,
+        ["nome", "cargo"]
+      );
+    }
+    if (relacionados.motoristas) {
+      await sincronizarRelacionados(
+        client,
+        "motorista",
+        "plantao_id",
+        plantaoId,
+        relacionados.motoristas,
+        ["nome"]
+      );
+    }
+
+    // 3. Apaga e reinserir movimentações e abastecimentos
+    await client.query(
+      "DELETE FROM abastecimentoviatura WHERE movimentacao_id IN (SELECT id FROM movimentacaoviatura WHERE plantao_id = $1)",
+      [plantaoId]
     );
-    await inserirRelacionadosDiretos(
-      client,
-      "motorista",
-      relacionados.motoristas,
-      plantaoId
+    await client.query(
+      "DELETE FROM movimentacaoviatura WHERE plantao_id = $1",
+      [plantaoId]
     );
 
-    // 3. Adiciona novas movimentações e seus abastecimentos
     if (relacionados.movimentacoes && relacionados.movimentacoes.length > 0) {
       for (const mov of relacionados.movimentacoes) {
-        const movQuery = `INSERT INTO movimentacaoviatura (plantao_id, placa, kminicial, kmfinal) VALUES ($1, $2, $3, $4) RETURNING id;`;
-        const movResult = await client.query(movQuery, [
-          plantaoId,
-          mov.placa,
-          mov.kminicial,
-          mov.kmfinal,
-        ]);
+        const movResult = await client.query(
+          `INSERT INTO movimentacaoviatura (plantao_id, placa, kminicial, kmfinal) VALUES ($1, $2, $3, $4) RETURNING id`,
+          [plantaoId, mov.placa, mov.kminicial, mov.kmfinal]
+        );
         const movimentacaoId = movResult.rows[0].id;
 
         if (mov.abastecimentos && mov.abastecimentos.length > 0) {
-          const abastQuery = `INSERT INTO abastecimentoviatura (movimentacao_id, kilometroabastecimento, valor) VALUES ($1, $2, $3);`;
           for (const abast of mov.abastecimentos) {
-            await client.query(abastQuery, [
-              movimentacaoId,
-              abast.kilometroabastecimento,
-              abast.valor,
-            ]);
+            await client.query(
+              `INSERT INTO abastecimentoviatura (movimentacao_id, kilometroabastecimento, valor) VALUES ($1, $2, $3)`,
+              [movimentacaoId, abast.kilometroabastecimento, abast.valor]
+            );
           }
         }
       }
@@ -186,17 +259,16 @@ const update = async (plantaoId, plantaoData, relacionados = {}) => {
 
     await client.query("COMMIT");
 
-    // Retorna o plantão atualizado completo
     const plantaoAtualizado = await findById(plantaoId);
     return plantaoAtualizado;
   } catch (error) {
     await client.query("ROLLBACK");
+    console.error("Erro ao sincronizar o plantão no banco de dados:", error);
     throw error;
   } finally {
     client.release();
   }
 };
-
 /**
  * Busca todos os plantões com suas entidades relacionadas aninhadas.
  * Assume que abastecimentoviatura está ligado a movimentacaoviatura.
